@@ -1,0 +1,59 @@
+{
+  "app_name": "Souqy Apparel",
+  "nav": {
+    "home": "Home",
+    "products": "Clothing Catalog",
+    "categories": "Categories",
+    "deals": "Season Sale",
+    "wishlist": "Wishlist",
+    "cart": "Shopping Bag",
+    "login": "Sign In",
+    "profile": "My Profile",
+    "orders": "My Orders",
+    "logout": "Logout",
+    "search_placeholder": "Search hoodies, dresses, blazers, denim..."
+  },
+  "hero": {
+    "badge": "Autum/Winter Collection 2026",
+    "title": "Elevate Your Style With Contemporary Apparel",
+    "subtitle": "Discover tailored blazers, heavyweight hoodies, organic cotton staples, and premium silk dresses crafted for your modern wardrobe.",
+    "cta_shop": "Shop New Arrivals",
+    "cta_explore": "Explore Categories"
+  },
+  "products": {
+    "title": "Trending Clothing & Apparel",
+    "subtitle": "Handcrafted essentials & seasonal runway highlights",
+    "all_categories": "All Collections",
+    "search": "Search clothing...",
+    "sort_by": "Sort by",
+    "add_to_cart": "Add to Bag",
+    "in_stock": "In Stock",
+    "out_of_stock": "Sold Out",
+    "price": "Price",
+    "rating": "Rating",
+    "no_products": "No apparel found matching your search."
+  },
+  "cart": {
+    "title": "Shopping Bag",
+    "empty": "Your shopping bag is empty",
+    "subtotal": "Subtotal",
+    "tax": "Taxes & duties calculated at checkout",
+    "checkout": "Proceed to Checkout",
+    "continue_shopping": "Continue Shopping"
+  },
+  "auth": {
+    "login_title": "Welcome Back to Souqy",
+    "login_sub": "Enter your credentials to manage your orders & wishlist",
+    "signup_title": "Join Souqy Club",
+    "signup_sub": "Create an account for exclusive drops & member discounts",
+    "email": "Email Address",
+    "password": "Password",
+    "name": "Full Name",
+    "remember_me": "Remember me",
+    "forgot_password": "Forgot password?",
+    "dont_have_account": "Don't have an account?",
+    "already_have_account": "Already have an account?",
+    "submit_login": "Sign In",
+    "submit_signup": "Create Account"
+  }
+}
