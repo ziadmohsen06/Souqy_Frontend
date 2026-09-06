@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { productService } from '@/services/product.service';
+import { useCategories, useProducts } from '@/features/products/hooks/useProducts';
 import { ProductCard } from '@/features/products/ProductCard';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Sparkles, ArrowRight, ShieldCheck, Truck, RefreshCw } from 'lucide-react';
@@ -10,19 +9,18 @@ import { useNavigate } from 'react-router-dom';
 export const HomePage: React.FC = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const [selectedCategory, setSelectedCategory] = useState<string>('All');
+  // undefined = "All"; otherwise a category GUID sent to the API as ?categoryId=
+  const [selectedCategory, setSelectedCategory] = useState<string | undefined>(undefined);
 
-  const { data: products, isLoading } = useQuery({
-    queryKey: ['products'],
-    queryFn: productService.getProducts,
-  });
+  const { data: categoriesData } = useCategories();
+  const { data, isLoading } = useProducts({ page: 1, pageSize: 6, categoryId: selectedCategory });
 
-  const categories = ['All', "Men's Apparel", "Women's Fashion", 'Outerwear', 'Knitwear'];
+  const categories = [
+    { id: undefined, name: t('products.all_categories') },
+    ...(categoriesData ?? []).map((c) => ({ id: c.id, name: c.name })),
+  ];
 
-  const filteredProducts =
-    products?.filter(
-      (p) => selectedCategory === 'All' || p.category === selectedCategory
-    ) || [];
+  const filteredProducts = data?.items ?? [];
 
   return (
     <div className="space-y-16 pb-16">
@@ -97,15 +95,15 @@ export const HomePage: React.FC = () => {
           <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none">
             {categories.map((cat) => (
               <button
-                key={cat}
-                onClick={() => setSelectedCategory(cat)}
+                key={cat.id ?? 'all'}
+                onClick={() => setSelectedCategory(cat.id)}
                 className={`px-4 py-2 text-xs font-semibold rounded-full whitespace-nowrap transition-all ${
-                  selectedCategory === cat
+                  selectedCategory === cat.id
                     ? 'bg-primary text-primary-foreground shadow-md'
                     : 'bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground'
                 }`}
               >
-                {cat}
+                {cat.name}
               </button>
             ))}
           </div>
