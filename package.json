@@ -7,7 +7,10 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "mock": "node mock/server.mjs",
+    "dev:mock": "VITE_USE_MOCK=true vite",
+    "typecheck": "tsc -b --noEmit"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.9.1",
