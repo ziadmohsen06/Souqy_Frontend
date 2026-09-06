@@ -29,7 +29,7 @@ export const Navbar: React.FC = () => {
       <header className="sticky top-0 z-40 w-full border-b border-border/60 bg-background/80 backdrop-blur-md transition-colors">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
           {/* Brand Logo */}
-          <Link to="/" className="flex items-center gap-2 font-black text-2xl tracking-tight text-foreground">
+          <Link to="/" className="flex items-center gap-2 font-black text-xl sm:text-2xl tracking-tight text-foreground whitespace-nowrap shrink-0">
             <span className="bg-gradient-to-r from-primary to-blue-600 bg-clip-text ">
               {t('app_name')}
             </span>
@@ -45,6 +45,9 @@ export const Navbar: React.FC = () => {
             </Link>
             <Link to="/wishlist" className="hover:text-primary transition-colors">
               {t('nav.wishlist')}
+            </Link>
+            <Link to="/cart" className="hover:text-primary transition-colors">
+              {t('nav.cart')}
             </Link>
           </nav>
 
@@ -91,7 +94,9 @@ export const Navbar: React.FC = () => {
 
             {/* Language & Theme Switchers */}
             <LanguageSwitcher />
-            <ThemeToggle />
+            <div className="hidden sm:block">
+              <ThemeToggle />
+            </div>
 
             {/* Auth / Profile */}
             {isAuthenticated && user ? (
@@ -157,6 +162,13 @@ export const Navbar: React.FC = () => {
               className="block px-3 py-2 rounded-lg text-sm font-medium hover:bg-muted text-foreground"
             >
               {t('nav.wishlist')} ({wishlistItems.length})
+            </Link>
+            <Link
+              to="/cart"
+              onClick={() => setIsMobileMenuOpen(false)}
+              className="block px-3 py-2 rounded-lg text-sm font-medium hover:bg-muted text-foreground"
+            >
+              {t('nav.cart')} ({totalCartCount})
             </Link>
           </div>
         )}
