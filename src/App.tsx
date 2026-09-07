@@ -11,6 +11,7 @@ import { ProductsPage } from '@/pages/ProductsPage';
 import { ProductDetailPage } from '@/pages/ProductDetailPage';
 import { WishlistPage } from '@/pages/WishlistPage';
 import { ProfilePage } from '@/pages/ProfilePage';
+import { CheckoutPage } from '@/pages/CheckoutPage';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -38,6 +39,8 @@ export const App: React.FC = () => {
             <Route path="products/:id" element={<ProductDetailPage />} />
             <Route path="wishlist" element={<WishlistPage />} />
             <Route path="profile" element={<ProfilePage />} />
+            <Route path="checkout" element={<CheckoutPage />} />
+
           </Route>
         </Routes>
       </BrowserRouter>
