@@ -25,6 +25,7 @@ import { useCart, FREE_SHIPPING_THRESHOLD } from '@/features/cart/useCart';
 import { useWishlistStore } from '@/store/useWishlistStore';
 import { ApiError } from '@/services/api';
 import { cn, formatPrice } from '@/lib/utils';
+import { sizeRank } from '@/lib/mappers';
 import type { Product } from '@/types';
 
 export const ProductDetailPage: React.FC = () => {
@@ -71,8 +72,8 @@ const ProductDetailView: React.FC<{ product: Product }> = ({ product }) => {
   const { isInWishlist, toggleItem } = useWishlistStore();
 
   // Everything the selector needs comes from the real variant array. The backend
-  // enforces one variant per (product, colour) (UQ_ProductVariants_Product_Color),
-  // so colour alone identifies a variant; size is that variant's attribute.
+  // now allows several sizes per (product, colour) — uniqueness is on
+  // (ProductId, Colour, Size) — so a colour + size pair identifies the variant.
   const variants = product.variants;
   const hasVariants = variants.length > 0;
 
@@ -83,6 +84,7 @@ const ProductDetailView: React.FC<{ product: Product }> = ({ product }) => {
   const sizesForColor = (color: string | undefined) =>
     color
       ? [...new Set(variants.filter((v) => v.color === color).map((v) => v.size).filter(Boolean))]
+          .sort((a, b) => sizeRank(a) - sizeRank(b))
       : [];
   const colorStock = (color: string) =>
     variants.filter((v) => v.color === color).reduce((n, v) => n + Math.max(0, v.stock), 0);
