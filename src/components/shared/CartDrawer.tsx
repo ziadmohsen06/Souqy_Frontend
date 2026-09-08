@@ -14,7 +14,7 @@ export const CartDrawer: React.FC = () => {
   const navigate = useNavigate();
   const { t, i18n } = useTranslation();
   const isAr = i18n.language === 'ar';
-  const navigate = useNavigate();
+  // const navigate = useNavigate();
   const { items, isOpen, closeCart, subtotal, itemCount, amountToFreeShipping } = useCart();
 
   // Esc closes, and lock body scroll while open.

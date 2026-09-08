@@ -26,6 +26,18 @@ import { MOCK_CATEGORIES, MOCK_PRODUCTS } from './mock-data';
 const USE_MOCK = import.meta.env.VITE_USE_MOCK === 'true';
 const DEFAULT_PAGE_SIZE = 12;
 
+
+// Type definition for the AI response from Python/.NET
+interface AiRecommendationDto {
+  Id: string;
+  Name: string;
+  Description: string | null;
+  Price: number;
+  ImageUrl: string | null;
+  SimilarityScore: number;
+}
+
+
 // ---------------------------------------------------------------------------
 // Mock transport – mimics the backend behaviour (pagination, category filter)
 // ---------------------------------------------------------------------------
@@ -57,6 +69,11 @@ const mockTransport = {
     await wait(150);
     return MOCK_CATEGORIES;
   },
+  // Mock returns empty so it falls back to category logic
+  async getRelatedProducts(id: string, limit: number): Promise<AiRecommendationDto[]> {
+    await wait(250);
+    return []; 
+  },
 };
 
 // ---------------------------------------------------------------------------
@@ -79,6 +96,13 @@ const httpTransport = {
   },
   async getCategories(): Promise<CategoryDto[]> {
     const { data } = await api.get<CategoryDto[]>('/categories');
+    return data;
+  },
+  // Calls AI endpoint (the backend .NET controller url)
+  async getRelatedProducts(id: string, limit: number): Promise<AiRecommendationDto[]> {
+    const { data } = await api.get<AiRecommendationDto[]>(`/products/${id}/recommendations`, {
+      params: { count: limit },
+    });
     return data;
   },
 };
@@ -127,14 +151,39 @@ export const productService = {
     );
   },
 
-  /** Products from the same category, excluding the current one. */
-  async getRelatedProducts(product: Product, limit = 4): Promise<Product[]> {
-    const { items } = await productService.getProducts({
-      page: 1,
-      pageSize: limit + 1,
-      categoryId: product.categoryId,
-    });
-    return items.filter((p) => p.id !== product.id).slice(0, limit);
+  // Now uses AI to get related products recommended by the AI, with a smart fallback
+    async getRelatedProducts(product: Product, limit = 4): Promise<Product[]> {
+    const aiRecs = await transport.getRelatedProducts(product.id, limit);
+    
+    if (!aiRecs || aiRecs.length === 0) {
+      const { items } = await productService.getProducts({
+        page: 1,
+        pageSize: limit + 1,
+        categoryId: product.categoryId,
+      });
+      return items.filter((p) => p.id !== product.id).slice(0, limit);
+    }
+
+    // Map PascalCase AI response to camelCase Product type with NULL handling
+    return aiRecs.map((item: any) => {
+      const price = item.Price ?? item.price ?? 0;
+      const imageUrl = item.ImageUrl ?? item.imageUrl ?? item.ImageURL ?? null;
+      
+      return {
+        id: item.Id || item.id,
+        name: item.Name || item.name || 'Unknown Product',
+        description: item.Description || item.description || '',
+        price: typeof price === 'number' ? price : parseFloat(price) || 0,
+        image: imageUrl || 'https://placehold.co/400x500/e2e8f0/475569?text=No+Image',
+        images: imageUrl ? [imageUrl] : [],
+        rating: 4.5,
+        reviewsCount: 0,
+        stock: 10,
+        categoryId: product.categoryId,
+        category: product.category,
+        createdAt: new Date().toISOString(),
+      };
+    }) as Product[];
   },
 };
 
