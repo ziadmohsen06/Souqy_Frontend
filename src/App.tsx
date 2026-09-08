@@ -9,6 +9,8 @@ import { MainLayout } from '@/layouts/MainLayout';
 import { HomePage } from '@/pages/HomePage';
 import { ProductsPage } from '@/pages/ProductsPage';
 import { ProductDetailPage } from '@/pages/ProductDetailPage';
+import { CartPage } from '@/pages/CartPage';
+import { NotFoundPage } from '@/pages/NotFoundPage';
 import { WishlistPage } from '@/pages/WishlistPage';
 import { ProfilePage } from '@/pages/ProfilePage';
 import { CheckoutPage } from '@/pages/CheckoutPage';
@@ -37,8 +39,10 @@ export const App: React.FC = () => {
             <Route index element={<HomePage />} />
             <Route path="products" element={<ProductsPage />} />
             <Route path="products/:id" element={<ProductDetailPage />} />
+            <Route path="cart" element={<CartPage />} />
             <Route path="wishlist" element={<WishlistPage />} />
             <Route path="profile" element={<ProfilePage />} />
+            <Route path="*" element={<NotFoundPage />} />
             <Route path="checkout" element={<CheckoutPage />} />
 
           </Route>
