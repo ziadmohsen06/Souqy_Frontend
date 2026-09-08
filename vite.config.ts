@@ -15,7 +15,7 @@ export default defineConfig(({ mode }) => {
       },
     },
     server: {
-      host: true,
+      host: '0.0.0.0',
       port: 5173,
       // Allow tunnelled/preview hosts (e.g. *.e2b.app, ngrok) during demos.
       allowedHosts: true,
