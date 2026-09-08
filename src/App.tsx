@@ -13,6 +13,7 @@ import { CartPage } from '@/pages/CartPage';
 import { NotFoundPage } from '@/pages/NotFoundPage';
 import { WishlistPage } from '@/pages/WishlistPage';
 import { ProfilePage } from '@/pages/ProfilePage';
+import { CheckoutPage } from '@/pages/CheckoutPage';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -42,6 +43,8 @@ export const App: React.FC = () => {
             <Route path="wishlist" element={<WishlistPage />} />
             <Route path="profile" element={<ProfilePage />} />
             <Route path="*" element={<NotFoundPage />} />
+            <Route path="checkout" element={<CheckoutPage />} />
+
           </Route>
         </Routes>
       </BrowserRouter>

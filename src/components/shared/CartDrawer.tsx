@@ -11,6 +11,7 @@ import { cn, formatPrice } from '@/lib/utils';
  * Full review + totals happen on /cart.
  */
 export const CartDrawer: React.FC = () => {
+  const navigate = useNavigate();
   const { t, i18n } = useTranslation();
   const isAr = i18n.language === 'ar';
   const navigate = useNavigate();
@@ -67,6 +68,7 @@ export const CartDrawer: React.FC = () => {
             )}
           </div>
 
+          {/* Footer Checkout Summary */}
           {items.length > 0 && (
             <div className="p-5 border-t border-border bg-muted/20 space-y-3">
               {amountToFreeShipping > 0 ? (

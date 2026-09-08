@@ -25,21 +25,31 @@ export const HomePage: React.FC = () => {
   return (
     <div className="space-y-16 pb-16">
       {/* Hero Banner Section */}
-      <section className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-primary/10 via-card to-blue-500/10 border border-border/80 p-8 sm:p-12 lg:p-16">
-        <div className="relative z-10 max-w-2xl space-y-6">
-          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-primary/15 text-primary text-xs font-bold tracking-wide">
+      <section className="relative overflow-hidden rounded-3xl border border-border/80 min-h-[420px] sm:min-h-[480px] flex items-center  p-6 sm:p-10 lg:p-14">
+        {/* Background Image */}
+        <div 
+          className="absolute inset-0 bg-cover bg-center bg-no-repeat transition-transform duration-700 hover:scale-105"
+          style={{ backgroundImage: `url('https://www.wearview.co/_next/image?url=%2Fassets%2Fservices%2Fmodel-creation.webp&w=3840&q=75')` }}
+        />
+        
+        {/* Soft overlay gradient */}
+        <div className="absolute inset-0 bg-black/30 dark:bg-black/50" />
+
+        {/* Content Card with Backdrop Filter */}
+        <div className="relative z-10 max-w-xl p-6 sm:p-8 rounded-3xl  space-y-5">
+          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-slate-900 text-white dark:bg-white dark:text-slate-900 text-xs font-bold tracking-wide shadow-xs">
             <span>{t('hero.badge')}</span>
           </div>
-          <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black text-foreground tracking-tight leading-tight">
+          <h1 className="text-2xl sm:text-4xl lg:text-5xl font-black text-slate-900 dark:text-white tracking-tight leading-tight">
             {t('hero.title')}
           </h1>
-          <p className="text-sm sm:text-base text-muted-foreground leading-relaxed">
+          <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 leading-relaxed font-medium">
             {t('hero.subtitle')}
           </p>
-          <div className="flex flex-wrap items-center gap-4 pt-2">
+          <div className="pt-2">
             <button
               onClick={() => navigate('/products')}
-              className="px-6 py-3 bg-primary text-primary-foreground font-bold rounded-xl hover:opacity-90 transition-all flex items-center gap-2 shadow-lg shadow-primary/25"
+              className="px-6 py-3 bg-slate-900 hover:bg-slate-800 text-white dark:bg-white dark:text-slate-900 dark:hover:bg-slate-100 font-bold rounded-xl transition-all flex items-center gap-2 shadow-lg cursor-pointer text-xs sm:text-sm"
             >
               <span>{t('hero.cta_shop')}</span>
               <ArrowRight className="w-4 h-4 rtl:rotate-180" />

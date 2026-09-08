@@ -36,7 +36,7 @@ export const Navbar: React.FC = () => {
           </Link>
 
           {/* Navigation Links (Desktop) */}
-          <nav className="hidden md:flex items-center gap-6 text-sm font-medium text-muted-foreground">
+          <nav className=" md:flex items-center gap-6 text-sm font-medium text-muted-foreground">
             <Link to="/" className="hover:text-primary transition-colors">
               {t('nav.home')}
             </Link>
