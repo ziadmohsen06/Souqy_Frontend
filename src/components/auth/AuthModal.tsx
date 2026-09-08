@@ -1,8 +1,11 @@
 import React, { useState } from 'react';
-import { X, Mail, Lock, User, Sparkles } from 'lucide-react';
+import { X, Mail, Lock, User, Sparkles, Loader2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { useAuthStore } from '@/store/useAuthStore';
+import { useCartStore } from '@/store/useCartStore';
+import { authService } from '@/services/auth.service';
+import { toApiError } from '@/services/api';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -15,28 +18,37 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const login = useAuthStore((state) => state.login);
 
   if (!isOpen) return null;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError(null);
     if (!email || !password || (isSignUp && !name)) {
-      toast.error('Please fill in all required fields');
+      setError('Please fill in all required fields');
       return;
     }
 
-    const mockUser = {
-      id: 'usr_' + Date.now(),
-      name: isSignUp ? name : email.split('@')[0],
-      email,
-      avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80',
-    };
-    const mockToken = 'mock_jwt_token_' + Date.now();
+    setSubmitting(true);
+    try {
+      const session = isSignUp
+        ? await authService.registerAndLogin({ fullname: name, email, password })
+        : await authService.login({ email, password });
 
-    login(mockUser, mockToken);
-    toast.success(isSignUp ? 'Account created successfully!' : 'Welcome back!');
-    onClose();
+      login(session.user, session.token);
+      // Push the guest bag to the server and load the authoritative cart.
+      void useCartStore.getState().syncOnAuth();
+      toast.success(isSignUp ? 'Account created successfully!' : 'Welcome back!');
+      onClose();
+      setEmail(''); setPassword(''); setName('');
+    } catch (err) {
+      setError(toApiError(err).message);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -62,6 +74,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
+          {error && (
+            <p role="alert" className="text-xs font-medium text-destructive bg-destructive/10 rounded-lg px-3 py-2">
+              {error}
+            </p>
+          )}
           {isSignUp && (
             <div>
               <label className="block text-xs font-semibold text-foreground mb-1">
@@ -114,8 +131,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
 
           <button
             type="submit"
-            className="w-full py-3 bg-primary text-primary-foreground font-semibold rounded-xl hover:opacity-90 transition-opacity shadow-lg shadow-primary/20 mt-2"
+            disabled={submitting}
+            className="w-full py-3 bg-primary text-primary-foreground font-semibold rounded-xl hover:opacity-90 transition-opacity shadow-lg shadow-primary/20 mt-2 flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
           >
+            {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
             {isSignUp ? t('auth.submit_signup') : t('auth.submit_login')}
           </button>
         </form>

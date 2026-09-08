@@ -70,37 +70,93 @@ const ProductDetailView: React.FC<{ product: Product }> = ({ product }) => {
   const { addItem, items } = useCart();
   const { isInWishlist, toggleItem } = useWishlistStore();
 
-  // Selection state – single options are pre-selected.
-  const [selectedSize, setSelectedSize] = useState<string | undefined>(
-    product.sizes?.length === 1 ? product.sizes[0] : undefined
+  // Everything the selector needs comes from the real variant array. The backend
+  // enforces one variant per (product, colour) (UQ_ProductVariants_Product_Color),
+  // so colour alone identifies a variant; size is that variant's attribute.
+  const variants = product.variants;
+  const hasVariants = variants.length > 0;
+
+  const colorOptions = useMemo(
+    () => [...new Set(variants.map((v) => v.color).filter(Boolean))],
+    [variants]
   );
-  const [selectedColor, setSelectedColor] = useState<string | undefined>(
-    product.colors?.length === 1 ? product.colors[0] : undefined
+  const sizesForColor = (color: string | undefined) =>
+    color
+      ? [...new Set(variants.filter((v) => v.color === color).map((v) => v.size).filter(Boolean))]
+      : [];
+  const colorStock = (color: string) =>
+    variants.filter((v) => v.color === color).reduce((n, v) => n + Math.max(0, v.stock), 0);
+  const sizeStock = (color: string | undefined, size: string) =>
+    variants
+      .filter((v) => v.color === color && v.size === size)
+      .reduce((n, v) => n + Math.max(0, v.stock), 0);
+
+  // Selection state – a lone colour (and its lone size) is pre-selected.
+  const [selectedColor, setSelectedColor] = useState<string | undefined>(() =>
+    colorOptions.length === 1 ? colorOptions[0] : undefined
   );
+  const [selectedSize, setSelectedSize] = useState<string | undefined>(() => {
+    if (colorOptions.length !== 1) return undefined;
+    const s = sizesForColor(colorOptions[0]);
+    return s.length === 1 ? s[0] : undefined;
+  });
   const [quantity, setQuantity] = useState(1);
   const [activeImage, setActiveImage] = useState(0);
   const [justAdded, setJustAdded] = useState(false);
 
+  const sizeOptions = sizesForColor(selectedColor);
+
+  const selectedVariant = useMemo(() => {
+    if (!selectedColor) return undefined;
+    const forColor = variants.filter((v) => v.color === selectedColor);
+    if (forColor.length === 0) return undefined;
+    if (forColor.length === 1) return forColor[0]; // colour → variant (the normal case)
+    return forColor.find((v) => v.size === selectedSize);
+  }, [variants, selectedColor, selectedSize]);
+
   const inCartQty = useMemo(
-    () => items.filter((i) => i.product.id === product.id).reduce((n, i) => n + i.quantity, 0),
-    [items, product.id]
+    () =>
+      items
+        .filter((i) => i.variantId === selectedVariant?.id)
+        .reduce((n, i) => n + i.quantity, 0),
+    [items, selectedVariant?.id]
   );
 
   const images = product.images?.length ? product.images : [product.image];
   const displayName = isAr && product.nameAr ? product.nameAr : product.name;
   const inWishlist = isInWishlist(product.id);
-  const outOfStock = product.stock <= 0;
-  const needsSize = (product.sizes?.length ?? 0) > 1 && !selectedSize;
-  const needsColor = (product.colors?.length ?? 0) > 1 && !selectedColor;
-  const maxQty = Math.max(1, product.stock - inCartQty);
-  const canAdd = !outOfStock && !needsSize && !needsColor && maxQty > 0;
+  const outOfStock = !hasVariants || product.stock <= 0;
+  const needsColor = colorOptions.length > 0 && !selectedColor;
+  const needsSize = !!selectedColor && sizeOptions.length > 1 && !selectedSize;
+  const variantStockLeft = selectedVariant ? selectedVariant.stock - inCartQty : 0;
+  const maxQty = Math.max(1, variantStockLeft);
+  const canAdd = !!selectedVariant && variantStockLeft > 0;
   const hasDiscount = !!product.originalPrice && product.originalPrice > product.price;
 
+  const chooseColor = (c: string) => {
+    if (c === selectedColor) return;
+    setSelectedColor(c);
+    const sizes = sizesForColor(c);
+    setSelectedSize(sizes.length === 1 ? sizes[0] : undefined);
+    setQuantity(1);
+    const withImage = variants.find((v) => v.color === c && v.image);
+    if (withImage?.image) {
+      const idx = images.indexOf(withImage.image);
+      if (idx >= 0) setActiveImage(idx);
+    }
+  };
+
+  const chooseSize = (s: string) => {
+    setSelectedSize(s);
+    setQuantity(1);
+  };
+
   const handleAdd = () => {
-    if (needsSize) { toast.error('Please select a size'); return; }
     if (needsColor) { toast.error('Please select a color'); return; }
-    if (!canAdd) return;
-    addItem(product, quantity, selectedColor, selectedSize);
+    if (needsSize) { toast.error('Please select a size'); return; }
+    if (!selectedVariant) { toast.error('That option is unavailable right now'); return; }
+    if (variantStockLeft <= 0) { toast.error('Out of stock for this option'); return; }
+    void addItem(product, selectedVariant, quantity);
     setJustAdded(true);
     setTimeout(() => setJustAdded(false), 1800);
     toast.success(`${displayName} × ${quantity} ${isAr ? 'أُضيف إلى الحقيبة' : 'added to bag'}`, {
@@ -109,8 +165,8 @@ const ProductDetailView: React.FC<{ product: Product }> = ({ product }) => {
   };
 
   const handleBuyNow = () => {
-    if (!canAdd) { handleAdd(); return; }
-    addItem(product, quantity, selectedColor, selectedSize);
+    if (!canAdd || !selectedVariant) { handleAdd(); return; }
+    void addItem(product, selectedVariant, quantity);
     navigate('/cart');
   };
 
@@ -222,50 +278,67 @@ const ProductDetailView: React.FC<{ product: Product }> = ({ product }) => {
           </p>
 
           {/* Color */}
-          {product.colors && product.colors.length > 0 && (
+          {colorOptions.length > 0 && (
             <div className="space-y-2">
               <div className="flex items-center justify-between text-sm">
                 <span className="font-semibold">Color</span>
                 <span className="text-muted-foreground">{selectedColor ?? 'Select'}</span>
               </div>
               <div className="flex flex-wrap gap-2">
-                {product.colors.map((c) => (
-                  <button
-                    key={c}
-                    onClick={() => setSelectedColor(c)}
-                    className={cn(
-                      'px-3.5 py-2 rounded-xl border text-sm font-medium transition-colors',
-                      selectedColor === c ? 'border-foreground bg-foreground text-background' : 'border-border hover:border-foreground'
-                    )}
-                  >
-                    {c}
-                  </button>
-                ))}
+                {colorOptions.map((c) => {
+                  const soldOut = colorStock(c) === 0;
+                  return (
+                    <button
+                      key={c}
+                      type="button"
+                      onClick={() => chooseColor(c)}
+                      disabled={soldOut}
+                      aria-pressed={selectedColor === c}
+                      className={cn(
+                        'px-3.5 py-2 rounded-xl border text-sm font-medium transition-colors disabled:opacity-40 disabled:line-through disabled:cursor-not-allowed',
+                        selectedColor === c ? 'border-foreground bg-foreground text-background' : 'border-border hover:border-foreground'
+                      )}
+                    >
+                      {c}
+                    </button>
+                  );
+                })}
               </div>
+              {needsColor && <p className="text-xs text-muted-foreground">Please select a color to continue.</p>}
             </div>
           )}
 
-          {/* Size */}
-          {product.sizes && product.sizes.length > 0 && (
+          {/* Size (scoped to the selected colour; from real variant data) */}
+          {selectedColor && sizeOptions.length > 0 && (
             <div className="space-y-2">
               <div className="flex items-center justify-between text-sm">
-                <span className="font-semibold">Size</span>
-                <button className="text-xs text-primary hover:underline">Size guide</button>
+                <span className="font-semibold">
+                  Size{sizeOptions.length === 1 ? `: ${sizeOptions[0]}` : ''}
+                </span>
+                <button type="button" className="text-xs text-primary hover:underline">Size guide</button>
               </div>
-              <div className="flex flex-wrap gap-2">
-                {product.sizes.map((s) => (
-                  <button
-                    key={s}
-                    onClick={() => setSelectedSize(s)}
-                    className={cn(
-                      'min-w-12 px-3.5 py-2 rounded-xl border text-sm font-semibold transition-colors',
-                      selectedSize === s ? 'border-foreground bg-foreground text-background' : 'border-border hover:border-foreground'
-                    )}
-                  >
-                    {s}
-                  </button>
-                ))}
-              </div>
+              {sizeOptions.length > 1 && (
+                <div className="flex flex-wrap gap-2">
+                  {sizeOptions.map((s) => {
+                    const soldOut = sizeStock(selectedColor, s) === 0;
+                    return (
+                      <button
+                        key={s}
+                        type="button"
+                        onClick={() => chooseSize(s)}
+                        disabled={soldOut}
+                        aria-pressed={selectedSize === s}
+                        className={cn(
+                          'min-w-12 px-3.5 py-2 rounded-xl border text-sm font-semibold transition-colors disabled:opacity-40 disabled:line-through disabled:cursor-not-allowed',
+                          selectedSize === s ? 'border-foreground bg-foreground text-background' : 'border-border hover:border-foreground'
+                        )}
+                      >
+                        {s}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
               {needsSize && <p className="text-xs text-muted-foreground">Please select a size to continue.</p>}
             </div>
           )}
@@ -295,10 +368,18 @@ const ProductDetailView: React.FC<{ product: Product }> = ({ product }) => {
               </div>
             </div>
             <div className="text-sm">
-              {outOfStock ? (
+              {!hasVariants ? (
+                <span className="font-semibold text-muted-foreground">No purchasable options yet</span>
+              ) : outOfStock ? (
                 <span className="font-semibold text-destructive">{t('products.out_of_stock')}</span>
-              ) : product.stock <= 5 ? (
-                <span className="font-semibold text-amber-600 dark:text-amber-400">Only {product.stock} left – order soon</span>
+              ) : !selectedColor ? (
+                <span className="font-semibold text-muted-foreground">Select a color to see availability</span>
+              ) : !selectedVariant ? (
+                <span className="font-semibold text-muted-foreground">Select a size</span>
+              ) : variantStockLeft <= 0 ? (
+                <span className="font-semibold text-destructive">Out of stock in this option</span>
+              ) : selectedVariant.stock <= 5 ? (
+                <span className="font-semibold text-amber-600 dark:text-amber-400">Only {selectedVariant.stock} left – order soon</span>
               ) : (
                 <span className="inline-flex items-center gap-1.5 font-semibold text-emerald-600 dark:text-emerald-400">
                   <Check className="w-4 h-4" /> {t('products.in_stock')}
@@ -314,7 +395,7 @@ const ProductDetailView: React.FC<{ product: Product }> = ({ product }) => {
           <div className="flex flex-col sm:flex-row gap-3 pt-2">
             <button
               onClick={handleAdd}
-              disabled={outOfStock}
+              disabled={!canAdd}
               className={cn(
                 'flex-1 py-3.5 rounded-2xl font-bold flex items-center justify-center gap-2 transition-all shadow-lg',
                 justAdded
@@ -324,11 +405,19 @@ const ProductDetailView: React.FC<{ product: Product }> = ({ product }) => {
               )}
             >
               {justAdded ? <Check className="w-5 h-5" /> : <ShoppingBag className="w-5 h-5" />}
-              <span>{justAdded ? 'Added!' : t('products.add_to_cart')}</span>
+              <span>
+                {justAdded
+                  ? 'Added!'
+                  : outOfStock
+                    ? t('products.out_of_stock')
+                    : !selectedVariant
+                      ? (isAr ? 'اختر الخيارات' : 'Select options')
+                      : t('products.add_to_cart')}
+              </span>
             </button>
             <button
               onClick={handleBuyNow}
-              disabled={outOfStock}
+              disabled={!canAdd}
               className="flex-1 py-3.5 rounded-2xl font-bold flex items-center justify-center gap-2 border-2 border-foreground text-foreground hover:bg-foreground hover:text-background transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Zap className="w-5 h-5" />
