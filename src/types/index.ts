@@ -5,6 +5,15 @@
 
 export * from './api';
 
+/** One purchasable option of a product. `id` is the backend ProductVariantId GUID. */
+export interface ProductVariant {
+  id: string;
+  size: string;
+  color: string;
+  image?: string;
+  stock: number;
+}
+
 export interface Product {
   id: string;
   name: string;
@@ -20,9 +29,12 @@ export interface Product {
   images?: string[];
   rating: number;
   reviewsCount: number;
+  /** Sum of variant stock. */
   stock: number;
-  sizes?: string[];
-  colors?: string[];
+  variants: ProductVariant[];
+  /** Distinct, derived from `variants` for filters / quick display. */
+  sizes: string[];
+  colors: string[];
   isNew?: boolean;
   isFeatured?: boolean;
   tags?: string[];
@@ -37,6 +49,8 @@ export interface Category {
 
 export interface CartItem {
   product: Product;
+  /** Backend ProductVariantId GUID this line resolves to. */
+  variantId: string;
   quantity: number;
   selectedColor?: string;
   selectedSize?: string;
