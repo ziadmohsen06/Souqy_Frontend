@@ -1,16 +1,25 @@
-import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import React, { useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useCartStore } from '@/store/useCartStore';
-import { HelpCircle, Tag, Check, CreditCard, ShieldCheck } from 'lucide-react';
+import { useAuthStore } from '@/store/useAuthStore';
+import { orderService, newIdempotencyKey } from '@/services/order.service';
+import { toApiError } from '@/services/api';
+import { HelpCircle, Tag, Check, CreditCard, ShieldCheck, Loader2, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
 
 export const CheckoutPage: React.FC = () => {
-  const navigate = useNavigate();
   const { t } = useTranslation();
   const { items, getTotalPrice, clearCart } = useCartStore();
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
 
   const [step, setStep] = useState<'shipping' | 'payment' | 'confirmation'>('shipping');
+  const [placing, setPlacing] = useState(false);
+  const [orderError, setOrderError] = useState<string | null>(null);
+  // One idempotency key per checkout attempt; regenerated when the user retries
+  // after a failure so a genuine re-submit isn't blocked, while a double-click
+  // within the same attempt is collapsed to one order by the backend.
+  const idempotencyKey = useRef<string>(newIdempotencyKey());
 
   // Form states
   const [firstName, setFirstName] = useState('');
@@ -34,25 +43,9 @@ export const CheckoutPage: React.FC = () => {
   const [cardExpiry, setCardExpiry] = useState('');
   const [cardCvc, setCardCvc] = useState('');
 
-  // Sample items fallback if cart is empty for demonstration
-  const displayItems = items.length > 0 ? items : [
-    {
-      product: {
-        id: 'sample-1',
-        name: 'Pure Mulberry Silk Pleated Midi Dress',
-        price: 165.00,
-        category: "Women's Fashion",
-        description: '',
-        image: 'https://images.unsplash.com/photo-1544441893-675973e31985?auto=format&fit=crop&q=80&w=300',
-        rating: 4.8,
-        reviewsCount: 12,
-        stock: 5
-      },
-      quantity: 2
-    }
-  ];
+  const displayItems = items;
 
-  const subtotal = items.length > 0 ? getTotalPrice() : 330.00;
+  const subtotal = getTotalPrice();
   const shippingCost = shippingMethod === 'express' ? 9.00 : 0.00;
   const estimatedTaxes = 5.00;
   const total = subtotal + shippingCost + estimatedTaxes - discountAmount;
@@ -77,16 +70,78 @@ export const CheckoutPage: React.FC = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const handleCompleteOrder = (e: React.FormEvent) => {
+  const buildShippingAddress = () =>
+    [
+      `${firstName} ${lastName}`.trim(),
+      description.trim(),
+      [city, state, zipCode].filter(Boolean).join(', '),
+      countryCode,
+      `Tel: ${phone}`,
+    ]
+      .filter((part) => part && part.trim() !== '')
+      .join(' | ');
+
+  const handleCompleteOrder = async (e: React.FormEvent) => {
     e.preventDefault();
+    setOrderError(null);
+
     if (paymentMethod === 'card' && (!cardNumber || !cardExpiry || !cardCvc)) {
-      toast.error('Please fill in card details.');
+      setOrderError('Please fill in card details.');
       return;
     }
-    clearCart();
-    setStep('confirmation');
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    if (!isAuthenticated) {
+      setOrderError('Please sign in to place your order.');
+      return;
+    }
+    if (items.length === 0) {
+      setOrderError('Your bag is empty.');
+      return;
+    }
+
+    setPlacing(true);
+    try {
+      await orderService.createOrder({
+        shippingAddress: buildShippingAddress(),
+        idempotencyKey: idempotencyKey.current,
+        // No `items` → the backend checks out from the server-side cart it synced.
+      });
+      clearCart();
+      setStep('confirmation');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } catch (err) {
+      const apiErr = toApiError(err);
+      setOrderError(apiErr.message);
+      // New key for the next genuine attempt (e.g. after topping up stock).
+      idempotencyKey.current = newIdempotencyKey();
+      toast.error(apiErr.message);
+    } finally {
+      setPlacing(false);
+    }
   };
+
+  if (step !== 'confirmation' && items.length === 0) {
+    return (
+      <div className="py-20 text-center space-y-4">
+        <h1 className="text-2xl font-extrabold">{t('cart.empty')}</h1>
+        <p className="text-sm text-muted-foreground">Add something to your bag before checking out.</p>
+        <Link to="/products" className="inline-block px-6 py-3 bg-primary text-primary-foreground font-semibold rounded-xl text-sm">
+          {t('cart.continue_shopping')}
+        </Link>
+      </div>
+    );
+  }
+
+  if (step !== 'confirmation' && !isAuthenticated) {
+    return (
+      <div className="py-20 text-center space-y-4">
+        <h1 className="text-2xl font-extrabold">Sign in to check out</h1>
+        <p className="text-sm text-muted-foreground">Your bag is saved on this device.</p>
+        <Link to="/cart" className="inline-block px-6 py-3 bg-primary text-primary-foreground font-semibold rounded-xl text-sm">
+          Back to bag
+        </Link>
+      </div>
+    );
+  }
 
   return (
     <div className="py-6 px-2 sm:px-4 text-foreground transition-colors duration-200">
@@ -411,11 +466,20 @@ export const CheckoutPage: React.FC = () => {
                     </div>
                   )}
 
+                  {orderError && (
+                    <div role="alert" className="flex items-start gap-2 text-xs font-medium text-destructive bg-destructive/10 rounded-xl px-3 py-2.5">
+                      <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+                      <span>{orderError}</span>
+                    </div>
+                  )}
+
                   <button
                     type="submit"
-                    className="w-full py-4 bg-primary text-primary-foreground font-bold rounded-xl shadow-md hover:opacity-90 transition-all text-center text-sm"
+                    disabled={placing}
+                    className="w-full py-4 bg-primary text-primary-foreground font-bold rounded-xl shadow-md hover:opacity-90 transition-all text-center text-sm flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
                   >
-                    {t('checkout.place_order')} (${total.toFixed(2)})
+                    {placing && <Loader2 className="w-4 h-4 animate-spin" />}
+                    {placing ? 'Placing order…' : `${t('checkout.place_order')} ($${total.toFixed(2)})`}
                   </button>
                 </form>
               </div>
@@ -455,7 +519,7 @@ export const CheckoutPage: React.FC = () => {
               {/* Cart Items List */}
               <div className="space-y-4 max-h-[380px] overflow-y-auto pr-1 rtl:pr-0 rtl:pl-1">
                 {displayItems.map((item, idx) => (
-                  <div key={item.product.id || idx} className="flex items-center justify-between space-x-4 rtl:space-x-reverse">
+                  <div key={item.lineId ?? idx} className="flex items-center justify-between space-x-4 rtl:space-x-reverse">
                     <div className="flex items-center space-x-3 rtl:space-x-reverse">
                       <div className="relative w-14 h-14 rounded-xl overflow-hidden bg-muted flex-shrink-0">
                         <img

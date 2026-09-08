@@ -20,9 +20,10 @@ export const CartLineItem: React.FC<Props> = ({ line, compact = false }) => {
   const { updateQuantity, removeItem } = useCart();
   const { addItem: addToWishlist, isInWishlist } = useWishlistStore();
 
-  const { product, quantity, selectedSize, selectedColor } = line;
+  const { product, quantity, selectedSize, selectedColor, variantId } = line;
   const name = isAr && product.nameAr ? product.nameAr : product.name;
-  const atMax = quantity >= product.stock;
+  const variantStock = product.variants.find((v) => v.id === variantId)?.stock ?? product.stock;
+  const atMax = quantity >= variantStock;
   const lineTotal = product.price * quantity;
 
   const moveToWishlist = () => {
@@ -61,9 +62,9 @@ export const CartLineItem: React.FC<Props> = ({ line, compact = false }) => {
               {selectedColor && <> · {selectedColor}</>}
               {selectedSize && <> · Size {selectedSize}</>}
             </p>
-            {product.stock <= 5 && (
+            {variantStock <= 5 && (
               <p className="text-xs font-semibold text-amber-600 dark:text-amber-400 mt-1">
-                Only {product.stock} left in stock
+                Only {variantStock} left in stock
               </p>
             )}
           </div>
@@ -121,6 +122,13 @@ export const CartLineItem: React.FC<Props> = ({ line, compact = false }) => {
 /** "Undo" support: restore a removed line with its exact options (without opening the drawer). */
 function restoreLine(line: CartLine) {
   const store = useCartStore.getState();
-  store.addItem(line.product, line.quantity, line.selectedColor, line.selectedSize);
+  const variant =
+    line.product.variants.find((v) => v.id === line.variantId) ?? {
+      id: line.variantId,
+      size: line.selectedSize ?? '',
+      color: line.selectedColor ?? '',
+      stock: line.quantity,
+    };
+  void store.addItem(line.product, variant, line.quantity);
   store.closeCart();
 }

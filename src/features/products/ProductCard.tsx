@@ -29,14 +29,20 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
   const displayName = isAr && product.nameAr ? product.nameAr : product.name;
   const href = `/products/${product.id}`;
 
+  const inStockVariants = product.variants.filter((v) => v.stock > 0);
+  const quickAddVariant = inStockVariants.length === 1 ? inStockVariants[0] : undefined;
+
   const handleAddToCart = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
     if (outOfStock) return;
-    // Product has a single size/color from the API → pre-select it.
-    const size = product.sizes?.length === 1 ? product.sizes[0] : undefined;
-    const color = product.colors?.length === 1 ? product.colors[0] : undefined;
-    addItem(product, 1, color, size);
+    // Only quick-add when the choice is unambiguous; otherwise send the user to
+    // the detail page to pick a colour / size (→ a specific ProductVariantId).
+    if (!quickAddVariant) {
+      navigate(href);
+      return;
+    }
+    void addItem(product, quickAddVariant, 1);
     toast.success(`${displayName} ${isAr ? 'أُضيف إلى الحقيبة' : 'added to bag'}`, {
       action: { label: isAr ? 'عرض الحقيبة' : 'View bag', onClick: () => navigate('/cart') },
     });
@@ -110,7 +116,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
               className="w-full py-2.5 bg-background/95 backdrop-blur-md text-foreground text-xs font-bold rounded-xl flex items-center justify-center gap-2 border border-border shadow-lg hover:bg-primary hover:text-primary-foreground hover:border-primary transition-colors"
             >
               <ShoppingBag className="w-4 h-4" />
-              <span>{t('products.add_to_cart')}</span>
+              <span>{quickAddVariant ? t('products.add_to_cart') : (isAr ? 'اختر الخيارات' : 'Select options')}</span>
             </button>
           </div>
         )}

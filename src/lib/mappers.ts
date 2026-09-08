@@ -1,17 +1,20 @@
 import type {
   Category,
   CategoryDto,
+  Order,
+  OrderDto,
   Paginated,
   PagedResult,
   Product,
   ProductDto,
+  ProductVariant,
 } from '@/types';
 
 /**
- * The backend currently returns a slim ProductDto (id, name, description,
- * price, createdAt). Everything the storefront needs beyond that is derived
- * here with sensible fallbacks so the UI is complete today and gets richer
- * automatically when the API exposes more fields.
+ * The backend ProductDto carries id, name, description, price, defaultColor,
+ * defaultImageUrl, createdAt and a `colorVariants` array. Presentation-only
+ * fields (rating, reviews, category labels, placeholder imagery) are derived
+ * here so the storefront stays complete.
  */
 
 const PLACEHOLDER_IMAGES: Record<string, string> = {
@@ -71,7 +74,8 @@ function isRecent(iso?: string, days = 30): boolean {
   return Date.now() - created < days * 24 * 60 * 60 * 1000;
 }
 
-const DEFAULT_SIZES = ['XS', 'S', 'M', 'L', 'XL'];
+const distinct = (values: (string | null | undefined)[]): string[] =>
+  [...new Set(values.filter((v): v is string => !!v && v.trim() !== ''))];
 
 export function mapProduct(dto: ProductDto, categories?: Category[]): Product {
   const r = seeded(dto.id);
@@ -80,7 +84,20 @@ export function mapProduct(dto: ProductDto, categories?: Category[]): Product {
   const categoryName =
     dto.categoryName || categoryFromList?.name || known?.en || 'Apparel';
 
-  const image = dto.imageUrl && dto.imageUrl.trim() !== '' ? dto.imageUrl : pickPlaceholderImage(dto.name);
+  const variants: ProductVariant[] = (dto.colorVariants ?? []).map((v) => ({
+    id: v.id,
+    size: v.size,
+    color: v.color,
+    image: v.colorImageUrl && v.colorImageUrl.trim() !== '' ? v.colorImageUrl : undefined,
+    stock: v.stockQuantity,
+  }));
+
+  const defaultImage =
+    dto.defaultImageUrl && dto.defaultImageUrl.trim() !== '' ? dto.defaultImageUrl : undefined;
+  const image = defaultImage ?? variants.find((v) => v.image)?.image ?? pickPlaceholderImage(dto.name);
+  const galleryImages = distinct([image, ...variants.map((v) => v.image)]);
+
+  const stock = variants.reduce((n, v) => n + Math.max(0, v.stock), 0);
 
   return {
     id: dto.id,
@@ -91,16 +108,54 @@ export function mapProduct(dto: ProductDto, categories?: Category[]): Product {
     categoryAr: known?.ar ?? CATEGORY_AR[categoryName.toLowerCase()],
     categoryId: dto.categoryId,
     image,
-    images: [image],
-    stock: dto.stockQuantity ?? 25,
-    sizes: dto.size ? [dto.size] : DEFAULT_SIZES,
-    colors: dto.color ? [dto.color] : undefined,
-    // Presentation-only fields the API doesn't have yet.
+    images: galleryImages,
+    stock,
+    variants,
+    colors: distinct([dto.defaultColor, ...variants.map((v) => v.color)]),
+    sizes: distinct(variants.map((v) => v.size)),
+    // Presentation-only fields the API doesn't provide.
     rating: Math.round((4.2 + r * 0.7) * 10) / 10,
     reviewsCount: Math.floor(20 + r * 200),
     isNew: isRecent(dto.createdAt),
     isFeatured: r > 0.5,
     createdAt: dto.createdAt,
+  };
+}
+
+export function mapOrder(dto: OrderDto): Order {
+  const statusMap: Record<string, Order['status']> = {
+    Pending: 'pending',
+    Paid: 'processing',
+    Failed: 'cancelled',
+    Cancelled: 'cancelled',
+  };
+  return {
+    id: dto.id,
+    date: dto.createdAt,
+    total: Number(dto.totalAmount),
+    status: statusMap[dto.status] ?? 'pending',
+    shippingAddress: dto.shippingAddress,
+    items: dto.items.map((i) => ({
+      // Minimal product stub — order history only needs name/price/qty.
+      product: {
+        id: i.productId,
+        name: i.productName,
+        description: '',
+        price: Number(i.unitPrice),
+        category: '',
+        image: pickPlaceholderImage(i.productName),
+        images: [],
+        rating: 0,
+        reviewsCount: 0,
+        stock: 0,
+        variants: [],
+        sizes: [],
+        colors: i.color ? [i.color] : [],
+      },
+      variantId: '',
+      quantity: i.quantity,
+      selectedColor: i.color ?? undefined,
+    })),
   };
 }
 
