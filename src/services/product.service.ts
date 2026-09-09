@@ -3,6 +3,7 @@ import { mapCategory, mapPaged, mapProduct } from '@/lib/mappers';
 import type {
   Category,
   CategoryDto,
+  CreateProductRequest,
   PagedResult,
   Paginated,
   Product,
@@ -69,6 +70,22 @@ const mockTransport = {
     await wait(150);
     return MOCK_CATEGORIES;
   },
+  async createProduct(input: CreateProductRequest): Promise<ProductDto> {
+    await wait(250);
+    const dto: ProductDto = {
+      id: crypto.randomUUID(),
+      name: input.name,
+      description: input.description ?? null,
+      price: input.price,
+      defaultColor: null,
+      defaultImageUrl: null,
+      createdAt: new Date().toISOString(),
+      colorVariants: [],
+      categoryId: input.categoryId,
+    };
+    MOCK_PRODUCTS.push(dto);
+    return dto;
+  },
   // Mock returns empty so it falls back to category logic
   async getRelatedProducts(id: string, limit: number): Promise<AiRecommendationDto[]> {
     await wait(250);
@@ -96,6 +113,10 @@ const httpTransport = {
   },
   async getCategories(): Promise<CategoryDto[]> {
     const { data } = await api.get<CategoryDto[]>('/categories');
+    return data;
+  },
+  async createProduct(input: CreateProductRequest): Promise<ProductDto> {
+    const { data } = await api.post<ProductDto>('/products', input);
     return data;
   },
   // Calls AI endpoint (the backend .NET controller url)
@@ -132,6 +153,12 @@ export const productService = {
   async getCategories(): Promise<Category[]> {
     const dtos = await transport.getCategories();
     return dtos.map(mapCategory);
+  },
+
+  /** Admin-only. Creates a product; the JWT is attached by the axios instance. */
+  async createProduct(input: CreateProductRequest): Promise<Product> {
+    const dto = await transport.createProduct({ stockQuantity: 0, ...input });
+    return mapProduct(dto);
   },
 
   /**
@@ -175,13 +202,7 @@ export const productService = {
         description: item.Description || item.description || '',
         price: typeof price === 'number' ? price : parseFloat(String(price)) || 0,
         image: imageUrl || 'https://placehold.co/400x500/e2e8f0/475569?text=No+Image',
-        
-        // CRITICAL FIX: Add default empty arrays so .filter() never crashes 
-        variants: [], 
         images: imageUrl ? [imageUrl] : [],
-        colors: [],
-        sizes: [],
-        
         rating: 4.5,
         reviewsCount: 0,
         stock: 10,
