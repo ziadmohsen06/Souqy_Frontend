@@ -173,14 +173,20 @@ export const productService = {
         id: item.Id || item.id,
         name: item.Name || item.name || 'Unknown Product',
         description: item.Description || item.description || '',
-        price: typeof price === 'number' ? price : parseFloat(price) || 0,
+        price: typeof price === 'number' ? price : parseFloat(String(price)) || 0,
         image: imageUrl || 'https://placehold.co/400x500/e2e8f0/475569?text=No+Image',
+        
+        // CRITICAL FIX: Add default empty arrays so .filter() never crashes 
+        variants: [], 
         images: imageUrl ? [imageUrl] : [],
+        colors: [],
+        sizes: [],
+        
         rating: 4.5,
         reviewsCount: 0,
         stock: 10,
         categoryId: product.categoryId,
-        category: product.category,
+        category: product.category || 'Uncategorized',
         createdAt: new Date().toISOString(),
       };
     }) as Product[];
