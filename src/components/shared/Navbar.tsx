@@ -1,28 +1,34 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Search, ShoppingBag, Heart, User as UserIcon, LogOut, Menu, X, Sparkles } from 'lucide-react';
+import { Search, ShoppingBag, Heart, User as UserIcon, LogOut, Menu, X, PackagePlus } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useCartStore } from '@/store/useCartStore';
 import { useWishlistStore } from '@/store/useWishlistStore';
+import { isAdminToken } from '@/services/auth.service';
 import { ThemeToggle } from './ThemeToggle';
 import { LanguageSwitcher } from './LanguageSwitcher';
 import { SearchModal } from './SearchModal';
 import { CartDrawer } from './CartDrawer';
 import { AuthModal } from '../auth/AuthModal';
+import { AddProductModal } from '../products/AddProductModal';
 
 export const Navbar: React.FC = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const { user, isAuthenticated, logout } = useAuthStore();
+  const { user, token, isAuthenticated, logout } = useAuthStore();
   const { getTotalItems, openCart } = useCartStore();
   const wishlistItems = useWishlistStore((s) => s.items);
 
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isAuthOpen, setIsAuthOpen] = useState(false);
+  const [isAddProductOpen, setIsAddProductOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const totalCartCount = getTotalItems();
+  // Admin-only "Add product". Fall back to decoding the token so sessions that
+  // were persisted before `user.role` existed still work.
+  const isAdmin = isAuthenticated && (user?.role === 'admin' || isAdminToken(token));
 
   return (
     <>
@@ -89,6 +95,17 @@ export const Navbar: React.FC = () => {
                 </span>
               )}
             </button>
+
+            {/* Admin: Add product */}
+            {isAdmin && (
+              <button
+                onClick={() => setIsAddProductOpen(true)}
+                className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-full border border-primary/40 text-primary hover:bg-primary/10 transition-colors"
+              >
+                <PackagePlus className="w-3.5 h-3.5" />
+                <span>Add Product</span>
+              </button>
+            )}
 
             <div className="h-4 w-px bg-border mx-1 hidden sm:block" />
 
@@ -170,6 +187,15 @@ export const Navbar: React.FC = () => {
             >
               {t('nav.cart')} ({totalCartCount})
             </Link>
+            {isAdmin && (
+              <button
+                onClick={() => { setIsMobileMenuOpen(false); setIsAddProductOpen(true); }}
+                className="w-full text-left flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-semibold text-primary hover:bg-muted"
+              >
+                <PackagePlus className="w-4 h-4" />
+                Add Product
+              </button>
+            )}
           </div>
         )}
       </header>
@@ -178,6 +204,7 @@ export const Navbar: React.FC = () => {
       <SearchModal isOpen={isSearchOpen} onClose={() => setIsSearchOpen(false)} />
       <CartDrawer />
       <AuthModal isOpen={isAuthOpen} onClose={() => setIsAuthOpen(false)} />
+      <AddProductModal isOpen={isAddProductOpen} onClose={() => setIsAddProductOpen(false)} />
     </>
   );
 };

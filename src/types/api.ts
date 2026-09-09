@@ -34,6 +34,16 @@ export interface ProductDto {
   categoryName?: string | null;
 }
 
+/** POST /api/v1/products — Application/Features/Products/DTOs/CreateProductDto.cs */
+export interface CreateProductRequest {
+  name: string;
+  description?: string | null;
+  price: number;
+  categoryId: string;
+  /** Kept for wire-compat with CreateProductDto; the backend no longer uses it. */
+  stockQuantity?: number;
+}
+
 /** POST/GET body for Application/Features/Products/DTOs/ProductVariantDto.cs */
 export interface CreateProductVariantDto {
   size: string;
