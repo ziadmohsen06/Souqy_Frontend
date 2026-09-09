@@ -179,11 +179,16 @@ export const productService = {
         rating: 4.5,
         reviewsCount: 0,
         stock: 10,
+        // Recommendation cards don't carry variant detail; keep these present so
+        // components that read product.variants/sizes/colors don't blow up.
+        variants: [],
+        sizes: [],
+        colors: [],
         categoryId: product.categoryId,
         category: product.category,
         createdAt: new Date().toISOString(),
-      };
-    }) as Product[];
+      } satisfies Product;
+    });
   },
 };
 

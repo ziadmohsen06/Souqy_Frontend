@@ -77,6 +77,19 @@ function isRecent(iso?: string, days = 30): boolean {
 const distinct = (values: (string | null | undefined)[]): string[] =>
   [...new Set(values.filter((v): v is string => !!v && v.trim() !== ''))];
 
+/** Canonical ordering for size labels so S/M/L/XL and 30/32/34 render in order
+ *  regardless of the order the API returns variant rows in. */
+const SIZE_RANK: Record<string, number> = {
+  XXS: 0, XS: 1, S: 2, M: 3, L: 4, XL: 5, XXL: 6, XXXL: 7, 'ONE SIZE': 100,
+};
+export function sizeRank(size: string): number {
+  const key = size.trim().toUpperCase();
+  if (key in SIZE_RANK) return SIZE_RANK[key];
+  const n = parseFloat(size);
+  return Number.isFinite(n) ? 20 + n : 90; // numeric sizes between letters and "One Size"
+}
+const bySize = (a: { size: string }, b: { size: string }) => sizeRank(a.size) - sizeRank(b.size);
+
 export function mapProduct(dto: ProductDto, categories?: Category[]): Product {
   const r = seeded(dto.id);
   const categoryFromList = categories?.find((c) => c.id === dto.categoryId);
@@ -84,13 +97,16 @@ export function mapProduct(dto: ProductDto, categories?: Category[]): Product {
   const categoryName =
     dto.categoryName || categoryFromList?.name || known?.en || 'Apparel';
 
-  const variants: ProductVariant[] = (dto.colorVariants ?? []).map((v) => ({
-    id: v.id,
-    size: v.size,
-    color: v.color,
-    image: v.colorImageUrl && v.colorImageUrl.trim() !== '' ? v.colorImageUrl : undefined,
-    stock: v.stockQuantity,
-  }));
+  const variants: ProductVariant[] = (dto.colorVariants ?? [])
+    .map((v) => ({
+      id: v.id,
+      size: v.size,
+      color: v.color,
+      image: v.colorImageUrl && v.colorImageUrl.trim() !== '' ? v.colorImageUrl : undefined,
+      stock: v.stockQuantity,
+    }))
+    // Group by colour, sizes in canonical order within each colour.
+    .sort((a, b) => a.color.localeCompare(b.color) || bySize(a, b));
 
   const defaultImage =
     dto.defaultImageUrl && dto.defaultImageUrl.trim() !== '' ? dto.defaultImageUrl : undefined;
@@ -112,7 +128,7 @@ export function mapProduct(dto: ProductDto, categories?: Category[]): Product {
     stock,
     variants,
     colors: distinct([dto.defaultColor, ...variants.map((v) => v.color)]),
-    sizes: distinct(variants.map((v) => v.size)),
+    sizes: distinct(variants.map((v) => v.size)).sort((a, b) => sizeRank(a) - sizeRank(b)),
     // Presentation-only fields the API doesn't provide.
     rating: Math.round((4.2 + r * 0.7) * 10) / 10,
     reviewsCount: Math.floor(20 + r * 200),
